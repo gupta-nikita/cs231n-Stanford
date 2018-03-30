@@ -23,6 +23,8 @@ def softmax_loss_naive(W, X, y, reg):
   # Initialize the loss and gradient to zero.
   loss = 0.0
   dW = np.zeros_like(W)
+  num_train = X.shape[0]
+  num_classes = W.shape[1]
 
   #############################################################################
   # TODO: Compute the softmax loss and its gradient using explicit loops.     #
@@ -30,7 +32,25 @@ def softmax_loss_naive(W, X, y, reg):
   # here, it is easy to run into numeric instability. Don't forget the        #
   # regularization!                                                           #
   #############################################################################
-  pass
+  scores = np.dot(X, W)
+  #subtract max value in order to avoid overflow
+  scores = scores - np.max(scores, axis=1)[:, np.newaxis]
+  for i in range(num_train):
+    cum_score = np.sum(np.exp(scores[i]))
+    class_score = np.exp(scores[i,y[i]])
+    loss += -np.log(class_score/cum_score)
+    
+    dW[:,y[i]] -= ((cum_score-class_score)/cum_score)*X[i]
+    for j in range(num_classes):
+        if j==y[i]:
+            continue
+        dW[:,j] += (np.exp(scores[i,j])/cum_score)*X[i]
+        
+  loss /= num_train
+  dW /= num_train
+  loss += reg*np.sum(W*W)
+  dW += 2*reg*W
+    
   #############################################################################
   #                          END OF YOUR CODE                                 #
   #############################################################################
@@ -47,6 +67,7 @@ def softmax_loss_vectorized(W, X, y, reg):
   # Initialize the loss and gradient to zero.
   loss = 0.0
   dW = np.zeros_like(W)
+  num_train = X.shape[0]
 
   #############################################################################
   # TODO: Compute the softmax loss and its gradient using no explicit loops.  #
@@ -54,7 +75,23 @@ def softmax_loss_vectorized(W, X, y, reg):
   # here, it is easy to run into numeric instability. Don't forget the        #
   # regularization!                                                           #
   #############################################################################
-  pass
+  scores = np.dot(X, W)
+  #subtract max value in order to avoid overflow
+  scores = scores - np.max(scores, axis=1)[:, np.newaxis]
+  exp_scores = np.exp(scores)
+  softmax_scores = exp_scores/(np.sum(exp_scores, axis=1)[:, np.newaxis])
+
+  loss = -np.sum(np.log(softmax_scores[range(num_train), y]))
+  loss /= num_train
+  loss += reg*np.sum(W*W)
+
+
+  mat = softmax_scores
+  cum_exp_minus_correct_score = np.sum(exp_scores, axis=1) - exp_scores[range(num_train), y]
+  mat[range(num_train), y] = -1*cum_exp_minus_correct_score/np.sum(exp_scores, axis=1)
+  dW = np.dot(X.T, mat)
+  dW /= num_train
+  dW += 2*reg*W
   #############################################################################
   #                          END OF YOUR CODE                                 #
   #############################################################################
