@@ -173,7 +173,14 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         # variance, storing your result in the running_mean and running_var   #
         # variables.                                                          #
         #######################################################################
-        pass
+        sample_mean = np.mean(x, axis=0)
+        sample_var = np.var(x, axis=0) 
+        x_hat = (x - sample_mean)/(np.sqrt(sample_var + eps))
+        out = gamma*x_hat + beta
+        
+        running_mean = momentum*running_mean + (1-momentum)*sample_mean
+        running_var = momentum*running_var + (1-momentum)*sample_var
+        cache = (x_hat, sample_mean, sample_var, eps, gamma, x)
         #######################################################################
         #                           END OF YOUR CODE                          #
         #######################################################################
@@ -184,7 +191,8 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         # then scale and shift the normalized data using gamma and beta.      #
         # Store the result in the out variable.                               #
         #######################################################################
-        pass
+        out = (x - running_mean)/(np.sqrt(running_var + eps))
+        out = gamma*out + beta
         #######################################################################
         #                          END OF YOUR CODE                           #
         #######################################################################
@@ -220,7 +228,24 @@ def batchnorm_backward(dout, cache):
     # TODO: Implement the backward pass for batch normalization. Store the    #
     # results in the dx, dgamma, and dbeta variables.                         #
     ###########################################################################
-    pass
+    x_hat, mu, var, eps, gamma, x = cache
+    N, D = x.shape
+    
+    dgamma = np.sum(x_hat*dout, axis=0)
+    dbeta = np.sum(dout, axis=0)
+    
+    #Deriving dx using computational graph
+    dx_hat = gamma*dout
+    dxmu1 = dx_hat * 1 / np.sqrt(var + eps) 
+    divar = np.sum(dx_hat * (x - mu), axis=0)
+    dvar = divar * -1/2 * (var+eps)**(-3/2)
+    dsq = 1 / N * np.ones((N,D)) * dvar
+    dxmu2 = 2* (x-mu) * dsq
+    dx1 = dxmu1 + dxmu2
+    dmu = -1 * np.sum(dxmu1 + dxmu2, axis=0)
+    dx2 = 1/N *np.ones((N, D)) * dmu
+    dx = dx1 + dx2
+    
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
