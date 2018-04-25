@@ -37,7 +37,8 @@ class ThreeLayerConvNet(object):
         self.params = {}
         self.reg = reg
         self.dtype = dtype
-
+        
+        C, H, W = input_dim
         ############################################################################
         # TODO: Initialize weights and biases for the three-layer convolutional    #
         # network. Weights should be initialized from a Gaussian with standard     #
@@ -48,7 +49,31 @@ class ThreeLayerConvNet(object):
         # hidden affine layer, and keys 'W3' and 'b3' for the weights and biases   #
         # of the output affine layer.                                              #
         ############################################################################
-        pass
+        W1 = weight_scale * np.random.randn(num_filters, C, filter_size, filter_size)
+        b1 = np.zeros(num_filters)
+        
+        #conv_param = {'stride': 1, 'pad': (filter_size - 1) // 2}
+        stride = 1
+        p = (filter_size - 1)//2
+        H_out = 1 + (H + 2*p - filter_size)//stride
+        W_out = 1 + (W + 2*p - filter_size)//stride
+            
+        #pool_param = {'pool_height': 2, 'pool_width': 2, 'stride': 2}
+        H_max = 1 + (H_out - 2)//2
+        W_max = 1 + (W_out - 2)//2
+        
+        W2 = weight_scale * np.random.randn(num_filters*H_max*W_max, hidden_dim)
+        b2 = np.zeros(hidden_dim)
+        
+        W3 = weight_scale * np.random.randn(hidden_dim, num_classes)
+        b3 = np.zeros(num_classes)
+        
+        self.params["W1"] = W1
+        self.params["b1"] = b1
+        self.params["W2"] = W2
+        self.params["b2"] = b2
+        self.params["W3"] = W3
+        self.params["b3"] = b3
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -80,7 +105,14 @@ class ThreeLayerConvNet(object):
         # computing the class scores for X and storing them in the scores          #
         # variable.                                                                #
         ############################################################################
-        pass
+        out, conv_cache = conv_forward_fast(X, W1, b1, conv_param)
+        out, relu_cache = relu_forward(out)
+        out, max_pool_cache = max_pool_forward_naive(out, pool_param)
+        out, affine_cache = affine_forward(out, W2, b2)
+        out, relu_cache2 = relu_forward(out)
+        out, affine_cache2 = affine_forward(out, W3, b3)
+        scores = out
+        #cache = (conv_cache, relu_cache, max_pool_cache, affine_cache, relu_cache2, affine_cache2)
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -95,7 +127,35 @@ class ThreeLayerConvNet(object):
         # data loss using softmax, and make sure that grads[k] holds the gradients #
         # for self.params[k]. Don't forget to add L2 regularization!               #
         ############################################################################
-        pass
+        loss, dout = softmax_loss(scores, y)
+        loss += self.reg * np.sum(W1*W1)
+        loss += self.reg * np.sum(W2*W2)
+        loss += self.reg * np.sum(W3*W3)
+        
+        #Affine Layer
+        dout, dw, db = affine_backward(dout,affine_cache2)
+        grads["W3"] = dw + 2*self.reg*W3
+        grads["b3"] = db
+        
+        #ReLU Layer
+        dout = relu_backward(dout, relu_cache2)
+        
+        #Affine Layer
+        dout, dw, db = affine_backward(dout, affine_cache)
+        grads["W2"] = dw + 2*self.reg*W2
+        grads["b2"] = db
+        
+        #Max pool layer
+        dout = max_pool_backward_naive(dout, max_pool_cache)
+        
+        #ReLU Layer
+        dout = relu_backward(dout, relu_cache)
+        
+        #Conv Layer
+        dout, dw, db = conv_backward_fast(dout, conv_cache)
+        grads["W1"] = dw + 2*self.reg * W1
+        grads["b1"] = db
+        
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
